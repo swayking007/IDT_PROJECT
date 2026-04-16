@@ -76,31 +76,47 @@ def dashboard_view(request):
 
     user_designs = Design.objects.filter(user=request.user)
 
-    # ── Stats ────────────────────────────────────────────────
+    # ── Stats ─────────────────────────────────────────────────
     total_projects  = user_designs.count()
-    completed       = total_projects          # every saved design = completed
-    # quotations = designs saved in the current calendar month
+    completed       = total_projects
     now = timezone.now()
     quotations_month = user_designs.filter(
-        created_at__year=now.year,
-        created_at__month=now.month
+        created_at__year=now.year, created_at__month=now.month
     ).count()
-    # material efficiency: ratio of glass area to overall area (simple heuristic)
-    # We use (glassW * glassH) / (W * H) averaged over designs
-    # Fallback: show a simple 85-94% range based on design count
-    if total_projects == 0:
-        efficiency = 0
-    else:
-        efficiency = min(85 + total_projects, 97)   # increases with experience
-
-    # ── Recent 5 designs ─────────────────────────────────────
+    efficiency = 0 if total_projects == 0 else min(85 + total_projects, 97)
     recent_designs = user_designs.order_by('-created_at')[:5]
-
-    # ── Total portfolio value ────────────────────────────────
     total_value = user_designs.aggregate(tv=Sum('total_cost'))['tv'] or 0
-
-    # ── All designs (for Saved Projects tab) ─────────────────
     designs = user_designs.order_by('-created_at')
+
+    # ── BOQ + Cutting data (pre-computed, no logic in template) ──
+    boq_data     = []
+    cutting_data = []
+    for d in designs:
+        W, H, qty = d.width, d.height, d.quantity
+        gW = W - 80;  gH = H - 80
+        cost = calculate_cost(W, H, qty, d.material)
+
+        boq_data.append({
+            'design': d,
+            'rows': [
+                {'component': 'Outer Frame – Top Rail',    'dim': f'{W:.0f} × 60 mm',    'qty': qty, 'est': f'{W/1000:.2f} m'},
+                {'component': 'Outer Frame – Bottom Rail', 'dim': f'{W:.0f} × 60 mm',    'qty': qty, 'est': f'{W/1000:.2f} m'},
+                {'component': 'Outer Frame – Left Jamb',   'dim': f'{H:.0f} × 60 mm',    'qty': qty, 'est': f'{H/1000:.2f} m'},
+                {'component': 'Outer Frame – Right Jamb',  'dim': f'{H:.0f} × 60 mm',    'qty': qty, 'est': f'{H/1000:.2f} m'},
+                {'component': 'Glass Panel',               'dim': f'{gW:.0f} × {gH:.0f} mm', 'qty': qty, 'est': f'{(gW*gH/1e6):.4f} m²'},
+                {'component': f'Frame Material ({d.material.capitalize()})', 'dim': f'{W:.0f} × {H:.0f} mm', 'qty': qty, 'est': f'{cost["area"]:.4f} m²'},
+            ]
+        })
+
+        cutting_data.append({
+            'design': d,
+            'rows': [
+                {'profile': 'Outer Frame – Top/Bottom Rail', 'stock': 6500, 'cut': f'{W:.0f}', 'pieces': qty * 2},
+                {'profile': 'Outer Frame – Left/Right Jamb', 'stock': 6500, 'cut': f'{H:.0f}', 'pieces': qty * 2},
+                {'profile': 'Sash – Horizontal',             'stock': 6000, 'cut': f'{gW:.0f}','pieces': qty * 2},
+                {'profile': 'Sash – Vertical',               'stock': 6000, 'cut': f'{gH:.0f}','pieces': qty * 2},
+            ]
+        })
 
     context = {
         'designs':          designs,
@@ -110,6 +126,8 @@ def dashboard_view(request):
         'quotations_month': quotations_month,
         'efficiency':       efficiency,
         'total_value':      round(total_value, 2),
+        'boq_data':         boq_data,
+        'cutting_data':     cutting_data,
     }
     return render(request, 'dashboard.html', context)
 
@@ -392,3 +410,31 @@ def export_pdf_view(request, design_id):
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="FabriCAD_Quotation_FAB-{design.id:04d}.pdf"'
     return response
+
+
+@login_required
+def update_profile_view(request):
+    """AJAX-friendly profile update: email and/or password."""
+    if request.method == 'POST':
+        user = request.user
+        email    = request.POST.get('email', '').strip()
+        password = request.POST.get('password', '').strip()
+        confirm  = request.POST.get('confirm_password', '').strip()
+
+        if email:
+            user.email = email
+        if password:
+            if password != confirm:
+                messages.error(request, 'Passwords do not match.')
+                return redirect('dashboard')
+            if len(password) < 8:
+                messages.error(request, 'Password must be at least 8 characters.')
+                return redirect('dashboard')
+            user.set_password(password)
+            # Re-login to keep session alive after password change
+            from django.contrib.auth import update_session_auth_hash
+            update_session_auth_hash(request, user)
+
+        user.save()
+        messages.success(request, 'Profile updated successfully.')
+    return redirect('dashboard')

@@ -74,7 +74,8 @@ function switchView(viewId) {
         'projects': 'Saved Projects',
         'quotations': 'Quotations',
         'boq': 'BOQ Reports',
-        'cutting': 'Cutting Optimization'
+        'cutting': 'Cutting Optimization',
+        'settings': 'Settings'
     };
     document.getElementById('topbarTitle').innerText = titles[viewId] || 'Workspace';
 

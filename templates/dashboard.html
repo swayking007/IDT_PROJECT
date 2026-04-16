@@ -1,16 +1,19 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FabriCAD – Design Workspace</title>
-  <meta name="description" content="FabriCAD Design Workspace – Configure, design, and optimize window and door products.">
+  <meta name="description"
+    content="FabriCAD Design Workspace – Configure, design, and optimize window and door products.">
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
 </head>
+
 <body>
 
   <aside class="sidebar" id="sidebar">
@@ -32,11 +35,11 @@
       <a class="sidebar-link" data-view="workspace" id="navCreateDesign">
         <i class="bi bi-plus-square"></i> Create New Design
       </a>
-      <a class="sidebar-link" data-view="projects" id="navSavedProjects">
+      <!-- <a class="sidebar-link" data-view="projects" id="navSavedProjects">
         <i class="bi bi-folder2-open"></i> Saved Projects
-      </a>
+      </a> -->
 
-      <div class="sidebar-menu-label">Outputs</div>
+      <!-- <div class="sidebar-menu-label">Outputs</div>
       <a class="sidebar-link" data-view="quotations" id="navQuotations">
         <i class="bi bi-receipt"></i> Quotations
       </a>
@@ -45,12 +48,12 @@
       </a>
       <a class="sidebar-link" data-view="cutting" id="navCutting">
         <i class="bi bi-scissors"></i> Cutting Optimization
-      </a>
+      </a> -->
 
       <div class="sidebar-menu-label">System</div>
-      <a class="sidebar-link" id="navSettings">
+      <!-- <a class="sidebar-link" id="navSettings">
         <i class="bi bi-gear"></i> Settings
-      </a>
+      </a> -->
       <a class="sidebar-link" href="{% url 'landing' %}" id="navBackToSite">
         <i class="bi bi-arrow-left-square"></i> Back to Website
       </a>
@@ -58,7 +61,7 @@
 
     <div class="sidebar-footer">
       <div class="sidebar-user">
-        <div class="sidebar-user-avatar" id="sidebarUserInitials">{{ user.first_name|make_list|first|default:user.username|make_list|first|upper }}</div>
+        <div class="sidebar-user-avatar" id="sidebarUserInitials">{{ user.first_name|default:user.username|slice:":1"|upper }}</div>
         <div class="sidebar-user-info">
           <h6 id="sidebarUserName">{{ user.first_name|default:user.username }}</h6>
           <span id="sidebarUserCompany">Manufacturer</span>
@@ -92,20 +95,26 @@
         <i class="bi bi-download"></i> <span>Export</span>
       </button>
       <div class="topbar-divider"></div>
-      
+
       <div class="dropdown">
-        <button class="topbar-btn notification-dot" id="btnNotifications" data-bs-toggle="dropdown" aria-expanded="false">
+        <button class="topbar-btn notification-dot" id="btnNotifications" data-bs-toggle="dropdown"
+          aria-expanded="false">
           <i class="bi bi-bell"></i>
         </button>
-        <ul class="dropdown-menu dropdown-menu-end p-2" id="notificationList" style="width: 320px; max-height: 400px; overflow-y: auto; border: 1px solid var(--border); box-shadow: var(--shadow-md);">
-          <li><h6 class="dropdown-header fw-bold text-dark">Notifications</h6></li>
-          <li><hr class="dropdown-divider"></li>
+        <ul class="dropdown-menu dropdown-menu-end p-2" id="notificationList"
+          style="width: 320px; max-height: 400px; overflow-y: auto; border: 1px solid var(--border); box-shadow: var(--shadow-md);">
+          <li>
+            <h6 class="dropdown-header fw-bold text-dark">Notifications</h6>
+          </li>
+          <li>
+            <hr class="dropdown-divider">
+          </li>
           <li id="noNotifs" class="text-center text-muted py-3" style="font-size: 0.85rem;">No new notifications</li>
         </ul>
       </div>
 
       <div class="topbar-user" id="btnProfile">
-        <div class="topbar-user-avatar" id="topbarUserInitials">{{ user.first_name|make_list|first|default:user.username|make_list|first|upper }}</div>
+        <div class="topbar-user-avatar" id="topbarUserInitials">{{ user.first_name|default:user.username|slice:":1"|upper }}</div>
       </div>
     </div>
   </header>
@@ -176,41 +185,45 @@
       <div class="panel">
         <div class="panel-header">
           <h6><i class="bi bi-clock-history"></i> Recent Projects</h6>
-          <button class="panel-action-btn" title="View all" onclick="switchView('projects')"><i class="bi bi-arrow-right"></i></button>
+          <button class="panel-action-btn" title="View all" onclick="switchView('projects')"><i
+              class="bi bi-arrow-right"></i></button>
         </div>
         <div class="panel-body" style="padding:0;">
           {% if recent_designs %}
-            {% for d in recent_designs %}
-            <div class="project-list-item">
-              <div class="project-info" style="flex:1;">
-                <div class="project-thumb" style="background:{% if d.type == 'door' %}rgba(16,185,129,0.12){% else %}rgba(99,102,241,0.12){% endif %};color:{% if d.type == 'door' %}var(--success){% else %}var(--primary){% endif %};">
-                  <i class="bi {% if d.type == 'door' %}bi-door-open{% else %}bi-window{% endif %}"></i>
-                </div>
-                <div>
-                  <div class="project-name">{{ d.type|capfirst }} — {{ d.typology|title }}</div>
-                  <div class="project-meta">
-                    {{ d.width|floatformat:0 }} × {{ d.height|floatformat:0 }} mm &middot;
-                    {{ d.material|capfirst }} &middot;
-                    Qty: {{ d.quantity }} &middot;
-                    <span style="color:var(--success);font-weight:600;">₹{{ d.total_cost|floatformat:0 }}</span>
-                  </div>
-                  <div class="project-meta" style="margin-top:2px;font-size:0.72rem;">
-                    <i class="bi bi-clock" style="font-size:0.65rem;"></i> {{ d.created_at|timesince }} ago
-                  </div>
-                </div>
+          {% for d in recent_designs %}
+          <div class="project-list-item">
+            <div class="project-info" style="flex:1;">
+              <div class="project-thumb"
+                style="background:{% if d.type == 'door' %}rgba(16,185,129,0.12){% else %}rgba(99,102,241,0.12){% endif %};color:{% if d.type == 'door' %}var(--success){% else %}var(--primary){% endif %};">
+                <i class="bi {% if d.type == 'door' %}bi-door-open{% else %}bi-window{% endif %}"></i>
               </div>
-              <div class="project-actions">
-                <a href="{% url 'export_pdf' d.id %}" class="project-action-btn" title="Download PDF" style="text-decoration:none;">
-                  <i class="bi bi-file-earmark-pdf" style="color:#ef4444;"></i>
-                </a>
+              <div>
+                <div class="project-name">{{ d.type|capfirst }} — {{ d.typology|title }}</div>
+                <div class="project-meta">
+                  {{ d.width|floatformat:0 }} × {{ d.height|floatformat:0 }} mm &middot;
+                  {{ d.material|capfirst }} &middot;
+                  Qty: {{ d.quantity }} &middot;
+                  <span style="color:var(--success);font-weight:600;">₹{{ d.total_cost|floatformat:0 }}</span>
+                </div>
+                <div class="project-meta" style="margin-top:2px;font-size:0.72rem;">
+                  <i class="bi bi-clock" style="font-size:0.65rem;"></i> {{ d.created_at|timesince }} ago
+                </div>
               </div>
             </div>
-            {% endfor %}
+            <div class="project-actions">
+              <a href="{% url 'export_pdf' d.id %}" class="project-action-btn" title="Download PDF"
+                style="text-decoration:none;">
+                <i class="bi bi-file-earmark-pdf" style="color:#ef4444;"></i>
+              </a>
+            </div>
+          </div>
+          {% endfor %}
           {% else %}
-            <div style="padding:2.5rem;text-align:center;color:var(--text-muted);">
-              <i class="bi bi-inbox" style="font-size:2.5rem;display:block;margin-bottom:0.75rem;opacity:0.35;"></i>
-              <p style="font-size:0.9rem;margin:0;">No projects yet. Go to <strong>Create New Design</strong> to get started!</p>
-            </div>
+          <div style="padding:2.5rem;text-align:center;color:var(--text-muted);">
+            <i class="bi bi-inbox" style="font-size:2.5rem;display:block;margin-bottom:0.75rem;opacity:0.35;"></i>
+            <p style="font-size:0.9rem;margin:0;">No projects yet. Go to <strong>Create New Design</strong> to get
+              started!</p>
+          </div>
           {% endif %}
         </div>
       </div>
@@ -230,102 +243,109 @@
           <form method="POST" action="{% url 'save_design' %}">
             {% csrf_token %}
             <div class="form-group-custom">
-            <label>Design Type</label>
-            <select class="form-control-custom" name="type" id="inputDesignType" onchange="updateTypologyOptions()">
-               <option value="window" selected>Window</option>
-               <option value="door">Door</option>
-            </select>
-          </div>
-          <div class="form-group-custom mt-3">
-            <label>Product Code</label>
-            <input type="text" class="form-control-custom" name="code" id="inputWindowCode" placeholder="e.g., WND-2024-001" value="WND-2024-015">
-          </div>
-          <div class="form-row">
-            <div class="form-group-custom">
-              <label>Width (mm)</label>
-              <input type="number" step="any" class="form-control-custom" name="width" id="inputWidth" placeholder="Width" value="1800">
+              <label>Design Type</label>
+              <select class="form-control-custom" name="type" id="inputDesignType" onchange="updateTypologyOptions()">
+                <option value="window" selected>Window</option>
+                <option value="door">Door</option>
+              </select>
+            </div>
+            <div class="form-group-custom mt-3">
+              <label>Product Code</label>
+              <input type="text" class="form-control-custom" name="code" id="inputWindowCode"
+                placeholder="e.g., WND-2024-001" value="WND-2024-015">
+            </div>
+            <div class="form-row">
+              <div class="form-group-custom">
+                <label>Width (mm)</label>
+                <input type="number" step="any" class="form-control-custom" name="width" id="inputWidth"
+                  placeholder="Width" value="1800">
+              </div>
+              <div class="form-group-custom">
+                <label>Height (mm)</label>
+                <input type="number" step="any" class="form-control-custom" name="height" id="inputHeight"
+                  placeholder="Height" value="1500">
+              </div>
             </div>
             <div class="form-group-custom">
-              <label>Height (mm)</label>
-              <input type="number" step="any" class="form-control-custom" name="height" id="inputHeight" placeholder="Height" value="1500">
+              <label>Quantity</label>
+              <input type="number" class="form-control-custom" name="quantity" id="inputQuantity" placeholder="Qty"
+                value="4">
             </div>
-          </div>
-          <div class="form-group-custom">
-            <label>Quantity</label>
-            <input type="number" class="form-control-custom" name="quantity" id="inputQuantity" placeholder="Qty" value="4">
-          </div>
 
-          <hr class="form-divider">
+            <hr class="form-divider">
 
-          <div class="form-group-custom">
-            <label>Typology</label>
-            <select class="form-control-custom" name="typology" id="inputTypology">
-              <option value="sliding" selected>Sliding</option>
-              <option value="casement">Casement</option>
-              <option value="tilt-turn">Tilt & Turn</option>
-            </select>
-          </div>
-          <div class="form-group-custom">
-            <label>Glass Type</label>
-            <select class="form-control-custom" id="inputGlassType">
-              <option value="single">Single Glazed (6mm)</option>
-              <option value="double" selected>Double Glazed (6-12-6mm)</option>
-              <option value="triple">Triple Glazed</option>
-              <option value="laminated">Laminated</option>
-            </select>
-          </div>
-          <div class="form-group-custom">
-            <label>Mesh Option</label>
-            <select class="form-control-custom" id="inputMesh">
-              <option value="yes" selected>Yes – Mosquito Mesh</option>
-              <option value="no">No</option>
-            </select>
-          </div>
+            <div class="form-group-custom">
+              <label>Typology</label>
+              <select class="form-control-custom" name="typology" id="inputTypology">
+                <option value="sliding" selected>Sliding</option>
+                <option value="casement">Casement</option>
+                <option value="tilt-turn">Tilt & Turn</option>
+              </select>
+            </div>
+            <div class="form-group-custom">
+              <label>Glass Type</label>
+              <select class="form-control-custom" id="inputGlassType">
+                <option value="single">Single Glazed (6mm)</option>
+                <option value="double" selected>Double Glazed (6-12-6mm)</option>
+                <option value="triple">Triple Glazed</option>
+                <option value="laminated">Laminated</option>
+              </select>
+            </div>
+            <div class="form-group-custom">
+              <label>Mesh Option</label>
+              <select class="form-control-custom" id="inputMesh">
+                <option value="yes" selected>Yes – Mosquito Mesh</option>
+                <option value="no">No</option>
+              </select>
+            </div>
 
-          <hr class="form-divider">
+            <hr class="form-divider">
 
-          <div class="form-group-custom">
-            <label>Frame Material</label>
-            <select class="form-control-custom" name="material" id="inputFrameMaterial">
-              <option value="aluminium" selected>Aluminium</option>
-              <option value="upvc">uPVC</option>
-              <option value="wood">Wood</option>
-              <option value="steel">Steel</option>
-            </select>
-          </div>
-          <div class="form-group-custom">
-            <label>Finish / Color</label>
-            <select class="form-control-custom" id="inputFinish">
-              <option value="natural-anodized" selected>Natural Anodized</option>
-              <option value="powder-coat-white">Powder Coat – White</option>
-              <option value="powder-coat-black">Powder Coat – Black</option>
-              <option value="powder-coat-grey">Powder Coat – Grey</option>
-              <option value="wood-grain">Wood Grain Finish</option>
-            </select>
-          </div>
-          </div>
-          <div class="action-bar">
-            <button type="button" class="action-btn primary" id="generate-btn">
-              <i class="bi bi-play-fill"></i> Generate
-            </button>
-            <button type="button" class="action-btn" onclick="resetForm()">
-              <i class="bi bi-arrow-counterclockwise"></i> Reset
-            </button>
-            <button type="submit" class="action-btn" style="background-color: var(--success); color: white;">
-              <i class="bi bi-floppy"></i> Save Design
-            </button>
-          </div>
-          </form>
+            <div class="form-group-custom">
+              <label>Frame Material</label>
+              <select class="form-control-custom" name="material" id="inputFrameMaterial">
+                <option value="aluminium" selected>Aluminium</option>
+                <option value="upvc">uPVC</option>
+                <option value="wood">Wood</option>
+                <option value="steel">Steel</option>
+              </select>
+            </div>
+            <div class="form-group-custom">
+              <label>Finish / Color</label>
+              <select class="form-control-custom" id="inputFinish">
+                <option value="natural-anodized" selected>Natural Anodized</option>
+                <option value="powder-coat-white">Powder Coat – White</option>
+                <option value="powder-coat-black">Powder Coat – Black</option>
+                <option value="powder-coat-grey">Powder Coat – Grey</option>
+                <option value="wood-grain">Wood Grain Finish</option>
+              </select>
+            </div>
         </div>
+        <div class="action-bar">
+          <button type="button" class="action-btn primary" id="generate-btn">
+            <i class="bi bi-play-fill"></i> Generate
+          </button>
+          <button type="button" class="action-btn" onclick="resetForm()">
+            <i class="bi bi-arrow-counterclockwise"></i> Reset
+          </button>
+          <button type="submit" class="action-btn" style="background-color: var(--success); color: white;">
+            <i class="bi bi-floppy"></i> Save Design
+          </button>
+        </div>
+        </form>
+      </div>
 
       <div class="cad-workspace" id="cadWorkspace">
-        
-        <div id="cadEmptyState" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-muted); text-align:center; background: var(--surface-alt);">
-          <div style="width: 80px; height: 80px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm); border: 1px dashed var(--border);">
+
+        <div id="cadEmptyState"
+          style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-muted); text-align:center; background: var(--surface-alt);">
+          <div
+            style="width: 80px; height: 80px; background: var(--surface); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm); border: 1px dashed var(--border);">
             <i class="bi bi-vector-pen" style="font-size:2rem; color: var(--primary); opacity: 0.8;"></i>
           </div>
           <h5 style="color: var(--text-primary); font-weight: 700; margin-bottom: 0.5rem;">No Design Generated</h5>
-          <p style="font-size:0.85rem; max-width:280px; line-height: 1.6;">Configure your window or door parameters on the left, then click <strong>Generate</strong> to render the CAD preview.</p>
+          <p style="font-size:0.85rem; max-width:280px; line-height: 1.6;">Configure your window or door parameters on
+            the left, then click <strong>Generate</strong> to render the CAD preview.</p>
         </div>
 
         <div id="cadActiveState" style="display:none; flex-direction:column; height:100%;">
@@ -340,7 +360,8 @@
             </div>
           </div>
 
-          <div class="cad-canvas" id="cadCanvas" style="display: flex; align-items: center; justify-content: center; padding: 2rem; position: relative;">
+          <div class="cad-canvas" id="cadCanvas"
+            style="display: flex; align-items: center; justify-content: center; padding: 2rem; position: relative;">
             <!-- DOM based CAD will be injected here -->
           </div>
 
@@ -399,128 +420,161 @@
               <span class="property-label">Mesh</span>
               <span class="property-value" id="propMesh">Yes</span>
             </div>
-          <div class="property-group">
-            <div class="property-group-title"><i class="bi bi-calculator" style="color:var(--success);"></i> Cost Estimation</div>
-            <div class="property-row">
-              <span class="property-label">Area (m²)</span>
-              <span class="property-value" id="costArea">—</span>
-            </div>
-            <div class="property-row">
-              <span class="property-label">Rate (₹/m²)</span>
-              <span class="property-value" id="costRate">—</span>
-            </div>
-            <div class="property-row">
-              <span class="property-label">Base Cost</span>
-              <span class="property-value" id="costBase">—</span>
-            </div>
-            <div class="property-row">
-              <span class="property-label">Production (10%)</span>
-              <span class="property-value" id="costProduction">—</span>
-            </div>
-            <div class="property-row">
-              <span class="property-label">Labour (10%)</span>
-              <span class="property-value" id="costLabour">—</span>
-            </div>
-            <div class="property-row" style="border-top:1px solid var(--border);padding-top:0.5rem;margin-top:0.25rem;">
-              <span class="property-label" style="font-weight:700;color:var(--text-primary);">Total Cost</span>
-              <span class="property-value" id="costTotal" style="color:var(--success);font-size:0.9rem;">—</span>
+            <div class="property-group">
+              <div class="property-group-title"><i class="bi bi-calculator" style="color:var(--success);"></i> Cost
+                Estimation</div>
+              <div class="property-row">
+                <span class="property-label">Area (m²)</span>
+                <span class="property-value" id="costArea">—</span>
+              </div>
+              <div class="property-row">
+                <span class="property-label">Rate (₹/m²)</span>
+                <span class="property-value" id="costRate">—</span>
+              </div>
+              <div class="property-row">
+                <span class="property-label">Base Cost</span>
+                <span class="property-value" id="costBase">—</span>
+              </div>
+              <div class="property-row">
+                <span class="property-label">Production (10%)</span>
+                <span class="property-value" id="costProduction">—</span>
+              </div>
+              <div class="property-row">
+                <span class="property-label">Labour (10%)</span>
+                <span class="property-value" id="costLabour">—</span>
+              </div>
+              <div class="property-row"
+                style="border-top:1px solid var(--border);padding-top:0.5rem;margin-top:0.25rem;">
+                <span class="property-label" style="font-weight:700;color:var(--text-primary);">Total Cost</span>
+                <span class="property-value" id="costTotal" style="color:var(--success);font-size:0.9rem;">—</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="action-bar">
-          <button class="action-btn primary" onclick="showOutputSection('boq')">
-            <i class="bi bi-list-check"></i> BOQ
-          </button>
-          <button class="action-btn success" onclick="showOutputSection('quotation')">
-            <i class="bi bi-receipt"></i> Quote
-          </button>
-          <button class="action-btn accent" onclick="showOutputSection('cutting')">
-            <i class="bi bi-scissors"></i> Optimize
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div id="outputSection" class="output-section" style="display:none;">
-      <div class="output-tabs">
-        <button class="output-tab active" data-tab="boq" onclick="switchOutputTab('boq')"><i class="bi bi-list-check"></i> Material BOQ</button>
-        <button class="output-tab" data-tab="cutting-report" onclick="switchOutputTab('cutting-report')"><i class="bi bi-scissors"></i> Cutting Report</button>
-      </div>
-      <div class="output-content">
-        <div class="output-toolbar">
-          <div class="output-toolbar-left"><span id="outputRecordCount">Items</span></div>
-          <div class="output-toolbar-right">
-            <button class="output-btn" onclick="exportToExcel()"><i class="bi bi-file-earmark-excel"></i> Excel</button>
-            <button class="output-btn" onclick="exportToPDF()"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+          <div class="action-bar">
+            <button class="action-btn primary" onclick="showOutputSection('boq')">
+              <i class="bi bi-list-check"></i> BOQ
+            </button>
+            <button class="action-btn success" onclick="showOutputSection('quotation')">
+              <i class="bi bi-receipt"></i> Quote
+            </button>
+            <button class="action-btn accent" onclick="showOutputSection('cutting')">
+              <i class="bi bi-scissors"></i> Optimize
+            </button>
           </div>
         </div>
-        <div class="table-container" id="outputTableContainer">
-          <table class="data-table" id="tableBOQ">
-            <thead>
-              <tr><th>#</th><th>Component</th><th>Dimension (mm)</th><th>Qty</th><th>Est. Area/Length</th></tr>
-            </thead>
-            <tbody id="boqTableBody">
-              <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:1.5rem;">Generate a design first to see BOQ</td></tr>
-            </tbody>
-          </table>
-          <table class="data-table" id="tableCutting" style="display:none;">
-            <thead>
-              <tr><th>#</th><th>Profile</th><th>Stock Length (mm)</th><th>Cut Length (mm)</th></tr>
-            </thead>
-            <tbody id="cuttingTableBody">
-              <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:1.5rem;">Generate a design first to see cutting plan</td></tr>
-            </tbody>
-          </table>
-        </div>
       </div>
-    </div>
 
-    <div class="view-section" id="viewProjects" style="display:none;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
-        <div>
-          <h4 style="font-weight:800;font-size:1.4rem;margin-bottom:0.25rem;">Saved Projects</h4>
-          <p style="color:var(--text-secondary);font-size:0.9rem;">Your designs saved to the database. Click PDF to download quotation.</p>
+      <div id="outputSection" class="output-section" style="display:none;">
+        <div class="output-tabs">
+          <button class="output-tab active" data-tab="boq" onclick="switchOutputTab('boq')"><i
+              class="bi bi-list-check"></i> Material BOQ</button>
+          <button class="output-tab" data-tab="cutting-report" onclick="switchOutputTab('cutting-report')"><i
+              class="bi bi-scissors"></i> Cutting Report</button>
+        </div>
+        <div class="output-content">
+          <div class="output-toolbar">
+            <div class="output-toolbar-left"><span id="outputRecordCount">Items</span></div>
+            <div class="output-toolbar-right">
+              <button class="output-btn" onclick="exportToExcel()"><i class="bi bi-file-earmark-excel"></i>
+                Excel</button>
+              <button class="output-btn" onclick="exportToPDF()"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+            </div>
+          </div>
+          <div class="table-container" id="outputTableContainer">
+            <table class="data-table" id="tableBOQ">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Component</th>
+                  <th>Dimension (mm)</th>
+                  <th>Qty</th>
+                  <th>Est. Area/Length</th>
+                </tr>
+              </thead>
+              <tbody id="boqTableBody">
+                <tr>
+                  <td colspan="5" style="text-align:center;color:var(--text-muted);padding:1.5rem;">Generate a design
+                    first to see BOQ</td>
+                </tr>
+              </tbody>
+            </table>
+            <table class="data-table" id="tableCutting" style="display:none;">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Profile</th>
+                  <th>Stock Length (mm)</th>
+                  <th>Cut Length (mm)</th>
+                </tr>
+              </thead>
+              <tbody id="cuttingTableBody">
+                <tr>
+                  <td colspan="4" style="text-align:center;color:var(--text-muted);padding:1.5rem;">Generate a design
+                    first to see cutting plan</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-      <div class="panel">
-        <div class="panel-body" style="padding:0;overflow-x:auto;">
-          <table class="data-table">
-            <thead>
-              <tr><th>#</th><th>Type</th><th>Typology</th><th>W x H (mm)</th><th>Qty</th><th>Material</th><th>Total Cost (RS)</th><th>Date</th><th>PDF</th></tr>
-            </thead>
-            <tbody>
-              {% for d in designs %}
-              <tr>
-                <td>{{ forloop.counter }}</td>
-                <td>{{ d.type|capfirst }}</td>
-                <td>{{ d.typology|title }}</td>
-                <td class="mono">{{ d.width|floatformat:0 }} x {{ d.height|floatformat:0 }}</td>
-                <td class="mono">{{ d.quantity }}</td>
-                <td>{{ d.material|capfirst }}</td>
-                <td class="mono" style="font-weight:700;">{{ d.total_cost|floatformat:2 }}</td>
-                <td style="font-size:0.78rem;">{{ d.created_at|date:"d M Y" }}</td>
-                <td>
-                  <a href="{% url 'export_pdf' d.id %}" class="action-btn"
-                     style="font-size:0.72rem;padding:4px 10px;text-decoration:none;">
-                    <i class="bi bi-file-earmark-pdf"></i> PDF
-                  </a>
-                </td>
-              </tr>
-              {% empty %}
-              <tr>
-                <td colspan="9" style="text-align:center;padding:2.5rem;">No saved designs yet.</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
 
-    <div class="view-section" id="viewQuotations" style="display:none;"></div>
-    <div class="view-section" id="viewBOQ" style="display:none;"></div>
-    <div class="view-section" id="viewCutting" style="display:none;"></div>
+      <div class="view-section" id="viewProjects" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+          <div>
+            <h4 style="font-weight:800;font-size:1.4rem;margin-bottom:0.25rem;">Saved Projects</h4>
+            <p style="color:var(--text-secondary);font-size:0.9rem;">Your designs saved to the database. Click PDF to
+              download quotation.</p>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-body" style="padding:0;overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Type</th>
+                  <th>Typology</th>
+                  <th>W x H (mm)</th>
+                  <th>Qty</th>
+                  <th>Material</th>
+                  <th>Total Cost (RS)</th>
+                  <th>Date</th>
+                  <th>PDF</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for d in designs %}
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ d.type|capfirst }}</td>
+                  <td>{{ d.typology|title }}</td>
+                  <td class="mono">{{ d.width|floatformat:0 }} x {{ d.height|floatformat:0 }}</td>
+                  <td class="mono">{{ d.quantity }}</td>
+                  <td>{{ d.material|capfirst }}</td>
+                  <td class="mono" style="font-weight:700;">{{ d.total_cost|floatformat:2 }}</td>
+                  <td style="font-size:0.78rem;">{{ d.created_at|date:"d M Y" }}</td>
+                  <td>
+                    <a href="{% url 'export_pdf' d.id %}" class="action-btn"
+                      style="font-size:0.72rem;padding:4px 10px;text-decoration:none;">
+                      <i class="bi bi-file-earmark-pdf"></i> PDF
+                    </a>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="9" style="text-align:center;padding:2.5rem;">No saved designs yet.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="view-section" id="viewQuotations" style="display:none;"></div>
+      <div class="view-section" id="viewBOQ" style="display:none;"></div>
+      <div class="view-section" id="viewCutting" style="display:none;"></div>
 
   </main>
 
@@ -594,12 +648,14 @@
             </div>
             <div class="form-group-custom">
               <label>Username</label>
-              <input type="text" class="form-control-custom" id="profileUsername" disabled style="background: var(--surface-dark);" value="{{ user.username }}">
+              <input type="text" class="form-control-custom" id="profileUsername" disabled
+                style="background: var(--surface-dark);" value="{{ user.username }}">
             </div>
           </form>
         </div>
         <div class="modal-footer d-flex justify-content-between">
-          <a href="{% url 'logout' %}" class="action-btn" id="btnLogout" style="color: var(--danger); border-color: var(--danger); text-decoration: none;">
+          <a href="{% url 'logout' %}" class="action-btn" id="btnLogout"
+            style="color: var(--danger); border-color: var(--danger); text-decoration: none;">
             <i class="bi bi-box-arrow-left"></i> Sign Out
           </a>
           <div class="d-flex gap-2">
@@ -612,9 +668,10 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
   <script src="{% static 'js/dashboard.js' %}"></script>
 </body>
+
 </html>
