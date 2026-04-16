@@ -136,21 +136,23 @@ window.generateDesign = function() {
     if (emptyState) emptyState.style.display = 'none';
     if (activeState) activeState.style.display = 'flex';
 
-    const width  = parseInt(document.getElementById('inputWidth').value)  || 1000;
-    const height = parseInt(document.getElementById('inputHeight').value) || 1000;
-    const typology   = document.getElementById('inputTypology').value;
+    const width    = parseInt(document.getElementById('inputWidth').value)  || 1000;
+    const height   = parseInt(document.getElementById('inputHeight').value) || 1000;
+    const quantity = parseInt(document.getElementById('inputQuantity').value) || 1;
+    const typology    = document.getElementById('inputTypology').value;
     const materialObj = document.getElementById('inputFrameMaterial');
     const finishObj   = document.getElementById('inputFinish');
     const glassObj    = document.getElementById('inputGlassType');
     const meshVal     = document.getElementById('inputMesh').value;
+    const material    = materialObj.value;   // e.g. 'aluminium'
 
-    // Update right-hand Properties panel
+    // ── Properties panel: frame & glass ──────────────────
     document.getElementById('propMaterial').innerText  = materialObj.options[materialObj.selectedIndex].text;
     document.getElementById('propFinish').innerText    = finishObj.options[finishObj.selectedIndex].text;
     document.getElementById('propGlassType').innerText = glassObj.options[glassObj.selectedIndex].text;
     document.getElementById('propMesh').innerText      = meshVal === 'yes' ? 'Yes (Fiberglass)' : 'No';
 
-    const area = ((width * height) / 1_000_000).toFixed(2);
+    const area = ((width * height) / 1_000_000).toFixed(4);
     document.getElementById('propGlassArea').innerText = `${area} m²`;
 
     const colorMap = {
@@ -168,10 +170,92 @@ window.generateDesign = function() {
         document.getElementById('inputTypology').options[document.getElementById('inputTypology').selectedIndex].text;
 
     const designType = document.getElementById('inputDesignType').value;
-    console.log('[FabriCAD] Rendering:', { designType, typology, width, height, frameColor });
 
+    // ── Render CAD ────────────────────────────────────────
     renderCAD(designType, typology, width, height, frameColor);
+
+    // ── Live cost calculation via AJAX ────────────────────
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrfToken) {
+        fetch('/calculate-cost/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken.value
+            },
+            body: JSON.stringify({ width, height, quantity, material })
+        })
+        .then(r => r.json())
+        .then(data => {
+            const fmt = v => '₹' + Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('costArea').innerText       = data.area       + ' m²';
+            document.getElementById('costRate').innerText       = '₹' + data.rate + ' / m²';
+            document.getElementById('costBase').innerText       = fmt(data.base_cost);
+            document.getElementById('costProduction').innerText = fmt(data.production);
+            document.getElementById('costLabour').innerText     = fmt(data.labor);
+            document.getElementById('costTotal').innerText      = fmt(data.total);
+            // update BOQ table
+            updateBOQTable(width, height, quantity, material, data);
+        })
+        .catch(err => console.warn('[FabriCAD] Cost calc error:', err));
+    } else {
+        // Fallback JS calculation when not logged in / no CSRF
+        const rates = { aluminium: 500, steel: 700, wood: 600, upvc: 400 };
+        const rate      = rates[material] || 500;
+        const areaM2    = (width / 1000) * (height / 1000);
+        const base      = areaM2 * rate * quantity;
+        const prod      = base * 0.10;
+        const labor     = base * 0.10;
+        const total     = base + prod + labor;
+        const fmt = v => '₹' + v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('costArea').innerText       = areaM2.toFixed(4) + ' m²';
+        document.getElementById('costRate').innerText       = '₹' + rate + ' / m²';
+        document.getElementById('costBase').innerText       = fmt(base);
+        document.getElementById('costProduction').innerText = fmt(prod);
+        document.getElementById('costLabour').innerText     = fmt(labor);
+        document.getElementById('costTotal').innerText      = fmt(total);
+        updateBOQTable(width, height, quantity, material, { area: areaM2, base_cost: base, production: prod, labor, total });
+    }
 };
+
+function updateBOQTable(W, H, qty, material, cost) {
+    const tbody = document.getElementById('boqTableBody');
+    const ctbody = document.getElementById('cuttingTableBody');
+    if (!tbody) return;
+
+    const glassW = W - 80;
+    const glassH = H - 80;
+    const glassArea = ((glassW * glassH) / 1e6).toFixed(4);
+
+    const rows = [
+        [1, 'Outer Frame – Top Rail',    `${W} × 60`,       qty, `${(W/1000).toFixed(2)} m`],
+        [2, 'Outer Frame – Bottom Rail', `${W} × 60`,       qty, `${(W/1000).toFixed(2)} m`],
+        [3, 'Outer Frame – Left Jamb',   `${H} × 60`,       qty, `${(H/1000).toFixed(2)} m`],
+        [4, 'Outer Frame – Right Jamb',  `${H} × 60`,       qty, `${(H/1000).toFixed(2)} m`],
+        [5, 'Glass Panel',               `${glassW} × ${glassH}`, qty, `${glassArea} m²`],
+        [6, `Frame Material (${material.charAt(0).toUpperCase()+material.slice(1)})`,
+                                          '—',              qty, `${cost.area} m²`],
+    ];
+
+    tbody.innerHTML = rows.map(r =>
+        `<tr>${r.map((c,i) => `<td${i>=2?' class="mono"':''}>${c}</td>`).join('')}</tr>`
+    ).join('');
+    document.getElementById('outputRecordCount').innerText = rows.length + ' items';
+
+    // Cutting table
+    if (ctbody) {
+        const stockLen = 6500;
+        const cuts = [
+            [1, 'Outer Frame (Top/Bottom)', stockLen, W],
+            [2, 'Outer Frame (Left/Right)', stockLen, H],
+            [3, 'Sash (Glass Rebate)',       stockLen, glassW],
+        ];
+        ctbody.innerHTML = cuts.map(r =>
+            `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="mono">${r[2]}</td><td class="mono">${r[3]}</td></tr>`
+        ).join('');
+    }
+}
+
 
 // ==========================================
 // TYPOLOGY DROPDOWN UPDATE
@@ -452,46 +536,241 @@ window.exportToExcel = function() {
 };
 
 window.exportToPDF = function() {
-    addNotification('Generating PDF... Please wait.');
-    const projectName = document.getElementById('currentProjectName').innerText;
-    const windowCode  = document.getElementById('inputWindowCode').value;
-
-    if (document.getElementById('cadEmptyState').style.display !== 'none'
-        && document.getElementById('cadActiveState').style.display === 'none') {
-        alert('Please generate a design first before exporting to PDF.');
+    // ── 1. Guard: must have generated a design ──────────────
+    const emptyState = document.getElementById('cadEmptyState');
+    const activeState = document.getElementById('cadActiveState');
+    if (!activeState || activeState.style.display === 'none') {
+        alert('Please click Generate first to create a design before exporting.');
         return;
     }
 
-    const previewEl = document.getElementById('cadCanvas');
-    const previewHTML = previewEl ? previewEl.innerHTML : '<p>No preview</p>';
-    const boqTable = document.getElementById('tableBOQ')
-        ? document.getElementById('tableBOQ').outerHTML : '<p>No data generated</p>';
+    addNotification('Generating PDF... Please wait.');
+
+    // ── 2. Read current form values ─────────────────────────
+    const projectName = document.getElementById('currentProjectName').innerText || 'Untitled Project';
+    const code        = document.getElementById('inputWindowCode').value        || 'N/A';
+    const W           = parseInt(document.getElementById('inputWidth').value)   || 1000;
+    const H           = parseInt(document.getElementById('inputHeight').value)  || 1000;
+    const qty         = parseInt(document.getElementById('inputQuantity').value)|| 1;
+    const designType  = document.getElementById('inputDesignType').value;
+    const typology    = document.getElementById('inputTypology').value;
+    const matEl       = document.getElementById('inputFrameMaterial');
+    const material    = matEl.value;
+    const materialLabel = matEl.options[matEl.selectedIndex].text;
+    const finishEl    = document.getElementById('inputFinish');
+    const finish      = finishEl.options[finishEl.selectedIndex].text;
+    const glassEl     = document.getElementById('inputGlassType');
+    const glass       = glassEl.options[glassEl.selectedIndex].text;
+    const mesh        = document.getElementById('inputMesh').value === 'yes' ? 'Yes' : 'No';
+    const today       = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+
+    // ── 3. Calculate cost (pure JS — no AJAX needed) ────────
+    const RATES = { aluminium: 500, steel: 700, wood: 600, upvc: 400 };
+    const rate       = RATES[material] || 500;
+    const areaM2     = parseFloat(((W / 1000) * (H / 1000)).toFixed(4));
+    const baseCost   = parseFloat((areaM2 * rate * qty).toFixed(2));
+    const production = parseFloat((baseCost * 0.10).toFixed(2));
+    const labour     = parseFloat((baseCost * 0.10).toFixed(2));
+    const total      = parseFloat((baseCost + production + labour).toFixed(2));
+
+    const INR = v => 'Rs. ' + Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    // ── 4. Build BOQ rows ───────────────────────────────────
+    const glassW = W - 80;
+    const glassH = H - 80;
+    const glassArea = ((glassW * glassH) / 1e6).toFixed(4);
+
+    const boqRows = [
+        [1, 'Outer Frame – Top Rail',    `${W} × 60 mm`,       qty, `${(W/1000).toFixed(2)} m`],
+        [2, 'Outer Frame – Bottom Rail', `${W} × 60 mm`,       qty, `${(W/1000).toFixed(2)} m`],
+        [3, 'Outer Frame – Left Jamb',   `${H} × 60 mm`,       qty, `${(H/1000).toFixed(2)} m`],
+        [4, 'Outer Frame – Right Jamb',  `${H} × 60 mm`,       qty, `${(H/1000).toFixed(2)} m`],
+        [5, 'Glass Panel',               `${glassW} × ${glassH} mm`, qty, `${glassArea} m²`],
+        [6, `Frame Material (${materialLabel})`, `${W} × ${H} mm`, qty, `${areaM2} m²`],
+        [7, 'Mesh / Screen', mesh === 'Yes' ? 'Fiberglass Mosquito Mesh' : 'Not included', qty, '—'],
+    ];
+
+    const cuttingRows = [
+        [1, 'Outer Frame (Top/Bottom rail)', 6500, W],
+        [2, 'Outer Frame (Left/Right jamb)', 6500, H],
+        [3, 'Sash – Horizontal',             6000, glassW],
+        [4, 'Sash – Vertical',               6000, glassH],
+    ];
+
+    // ── 5. CSS helpers ──────────────────────────────────────
+    const thStyle  = 'background:#0f172a;color:#fff;padding:8px 10px;font-size:11px;text-align:left;border:1px solid #334155;';
+    const td1Style = 'padding:7px 10px;font-size:11px;border:1px solid #e2e8f0;font-weight:600;background:#f8fafc;';
+    const tdStyle  = 'padding:7px 10px;font-size:11px;border:1px solid #e2e8f0;font-family:monospace;';
+    const tdEvenStyle = 'padding:7px 10px;font-size:11px;border:1px solid #e2e8f0;font-family:monospace;background:#f8fafc;';
+
+    const boqHTML = `
+        <table style="width:100%;border-collapse:collapse;margin-top:8px;">
+            <thead><tr>
+                <th style="${thStyle}">#</th>
+                <th style="${thStyle}">Component</th>
+                <th style="${thStyle}">Dimension</th>
+                <th style="${thStyle}">Qty</th>
+                <th style="${thStyle}">Est. Area / Length</th>
+            </tr></thead>
+            <tbody>
+                ${boqRows.map((r, i) => `<tr>
+                    <td style="${i%2===0?tdEvenStyle:tdStyle}">${r[0]}</td>
+                    <td style="${i%2===0?td1Style:tdStyle}">${r[1]}</td>
+                    <td style="${i%2===0?tdEvenStyle:tdStyle}">${r[2]}</td>
+                    <td style="${i%2===0?tdEvenStyle:tdStyle}">${r[3]}</td>
+                    <td style="${i%2===0?tdEvenStyle:tdStyle}">${r[4]}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>`;
+
+    const cuttingHTML = `
+        <table style="width:100%;border-collapse:collapse;margin-top:8px;">
+            <thead><tr>
+                <th style="${thStyle}">#</th>
+                <th style="${thStyle}">Profile</th>
+                <th style="${thStyle}">Stock Length (mm)</th>
+                <th style="${thStyle}">Required Cut (mm)</th>
+            </tr></thead>
+            <tbody>
+                ${cuttingRows.map((r, i) => `<tr>
+                    <td style="${i%2===0?tdEvenStyle:tdStyle}">${r[0]}</td>
+                    <td style="${i%2===0?td1Style:tdStyle}">${r[1]}</td>
+                    <td style="${i%2===0?tdEvenStyle:tdStyle}">${r[2]}</td>
+                    <td style="${i%2===0?tdEvenStyle:tdStyle}">${r[3]}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>`;
+
+    const specRows = [
+        ['Design Type',   designType.charAt(0).toUpperCase() + designType.slice(1)],
+        ['Typology',      typology.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase())],
+        ['Width',         `${W} mm`],
+        ['Height',        `${H} mm`],
+        ['Quantity',      `${qty} unit(s)`],
+        ['Frame Material',materialLabel],
+        ['Finish / Color',finish],
+        ['Glass Type',    glass],
+        ['Mesh',          mesh],
+        ['Area per unit', `${areaM2} m²`],
+    ];
+
+    const specHTML = `
+        <table style="width:100%;border-collapse:collapse;margin-top:8px;">
+            <tbody>
+                ${specRows.map((r,i) => `<tr>
+                    <td style="padding:7px 10px;font-size:11px;border:1px solid #e2e8f0;font-weight:700;background:#f8fafc;width:40%;">${r[0]}</td>
+                    <td style="padding:7px 10px;font-size:11px;border:1px solid #e2e8f0;">${r[1]}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>`;
+
+    const costHTML = `
+        <table style="width:100%;border-collapse:collapse;margin-top:8px;">
+            <thead><tr>
+                <th style="${thStyle}">Description</th>
+                <th style="${thStyle};text-align:right;">Amount</th>
+            </tr></thead>
+            <tbody>
+                <tr>
+                    <td style="${td1Style}">Material Rate</td>
+                    <td style="${tdStyle};text-align:right;">Rs. ${rate} / m²</td>
+                </tr>
+                <tr>
+                    <td style="${tdEvenStyle}">Area × Rate × Qty (${areaM2} m² × Rs.${rate} × ${qty})</td>
+                    <td style="${tdEvenStyle};text-align:right;">${INR(baseCost)}</td>
+                </tr>
+                <tr>
+                    <td style="${td1Style}">Production Cost (10%)</td>
+                    <td style="${tdStyle};text-align:right;">${INR(production)}</td>
+                </tr>
+                <tr>
+                    <td style="${tdEvenStyle}">Labour Cost (10%)</td>
+                    <td style="${tdEvenStyle};text-align:right;">${INR(labour)}</td>
+                </tr>
+                <tr>
+                    <td style="padding:10px;font-size:13px;font-weight:800;background:#1a73e8;color:#fff;border:1px solid #155db2;">GRAND TOTAL</td>
+                    <td style="padding:10px;font-size:13px;font-weight:800;background:#1a73e8;color:#fff;border:1px solid #155db2;text-align:right;">${INR(total)}</td>
+                </tr>
+            </tbody>
+        </table>`;
+
+    // ── 6. Get the canvas preview HTML ──────────────────────
+    const cadCanvas = document.getElementById('cadCanvas');
+    const previewHTML = cadCanvas
+        ? `<div style="display:flex;align-items:center;justify-content:center;padding:30px;background:#fff;">${cadCanvas.innerHTML}</div>`
+        : '<p style="color:#999;">No preview available.</p>';
+
+    // ── 7. Assemble the full PDF document ───────────────────
+    const docStyle = 'padding:24px 28px;font-family:Arial,Helvetica,sans-serif;color:#0f172a;max-width:780px;';
+    const sectionHead = (text, icon='') =>
+        `<h3 style="margin:20px 0 4px;font-size:13px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:0.06em;border-left:4px solid #1a73e8;padding-left:10px;">${icon} ${text}</h3>`;
 
     const element = document.createElement('div');
-    element.style.cssText = 'padding:20px;font-family:Arial,sans-serif;color:#333;';
+    element.style.cssText = docStyle;
     element.innerHTML = `
-        <div style="border-bottom:2px solid #1a73e8;padding-bottom:10px;margin-bottom:20px;">
-            <h2 style="margin:0;color:#1a73e8;font-weight:800;">FabriCAD Production Report</h2>
-            <p style="margin:5px 0 0;color:#666;">Project: <strong>${projectName}</strong> | Code: <strong>${windowCode}</strong></p>
+        <!-- Header -->
+        <div style="border-bottom:3px solid #1a73e8;padding-bottom:12px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+                <h1 style="margin:0;font-size:22px;font-weight:900;color:#1a73e8;letter-spacing:-0.02em;">FabriCAD</h1>
+                <p style="margin:3px 0 0;color:#64748b;font-size:11px;font-weight:500;">Window & Door Fabrication Suite</p>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:11px;color:#64748b;">Ref: FAB-${Date.now().toString().slice(-6)}</div>
+                <div style="font-size:11px;color:#64748b;">Date: ${today}</div>
+            </div>
         </div>
-        <div style="margin-bottom:30px;text-align:center;border:1px solid #e2e8f0;padding:20px;border-radius:8px;background:#f8fafc;">
-            <h4 style="margin-top:0;margin-bottom:10px;text-align:left;color:#0f172a;">Design Preview</h4>
-            <div style="background:#fff;padding:20px;border:1px solid #cbd5e1;">${previewHTML}</div>
+
+        <!-- Project Info bar -->
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px 14px;margin-bottom:16px;display:flex;gap:32px;">
+            <div><span style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Project</span><br><strong style="font-size:12px;">${projectName}</strong></div>
+            <div><span style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Product Code</span><br><strong style="font-size:12px;">${code}</strong></div>
+            <div><span style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Type</span><br><strong style="font-size:12px;">${designType.toUpperCase()} · ${typology.toUpperCase()}</strong></div>
+            <div><span style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Total Cost</span><br><strong style="font-size:12px;color:#10b981;">${INR(total)}</strong></div>
         </div>
-        <div><h4 style="color:#0f172a;margin-bottom:15px;">Bill of Quantities (BOQ)</h4>${boqTable}</div>
+
+        <!-- CAD Preview -->
+        ${sectionHead('Design Preview', '&#127922;')}
+        <div style="border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;margin-bottom:4px;overflow:hidden;padding:10px;">
+            ${previewHTML}
+        </div>
+
+        <!-- Design Specification -->
+        ${sectionHead('Design Specification', '&#128196;')}
+        ${specHTML}
+
+        <!-- Cost Breakdown -->
+        ${sectionHead('Cost Breakdown', '&#128176;')}
+        ${costHTML}
+
+        <!-- BOQ -->
+        ${sectionHead('Bill of Quantities (BOQ)', '&#128203;')}
+        ${boqHTML}
+
+        <!-- Cutting Plan -->
+        ${sectionHead('Cutting Optimization Plan', '&#9986;')}
+        ${cuttingHTML}
+
+        <!-- Footer -->
+        <div style="margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;text-align:center;color:#94a3b8;font-size:9px;line-height:1.6;">
+            This quotation is valid for 30 days. Prices subject to change based on final site measurements and material availability.<br>
+            GST applicable as per prevailing government rates. Generated by <strong>FabriCAD</strong> — Precision Fabrication Software.
+        </div>
     `;
 
+    // ── 8. html2pdf options ──────────────────────────────────
     const opt = {
-        margin: 15,
-        filename: `${windowCode}_Report.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        margin:      [10, 10, 10, 10],
+        filename:    `FabriCAD_Quotation_${code}.pdf`,
+        image:       { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
+
     html2pdf().set(opt).from(element).save().then(() => {
-        addNotification(`PDF (${windowCode}_Report.pdf) downloaded successfully.`);
+        addNotification(`Quotation PDF "${code}_Report.pdf" downloaded successfully.`);
     });
 };
+
 
 // ==========================================
 // AUTHENTICATION & PROFILE LOGIC
