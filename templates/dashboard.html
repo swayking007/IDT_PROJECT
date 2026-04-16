@@ -111,6 +111,18 @@
   </header>
 
   <main class="main-content">
+    {% if messages %}
+    <div class="row">
+      <div class="col-12">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
     <div class="view-section active" id="viewDashboard">
       <div style="margin-bottom:1.25rem;">
@@ -164,35 +176,42 @@
           </div>
         </div>
         <div class="panel-body">
-          <div class="form-group-custom">
-            <label>Window Code</label>
-            <input type="text" class="form-control-custom" id="inputWindowCode" placeholder="e.g., WND-2024-001" value="WND-2024-015">
+          <form method="POST" action="{% url 'save_design' %}">
+            {% csrf_token %}
+            <div class="form-group-custom">
+            <label>Design Type</label>
+            <select class="form-control-custom" name="type" id="inputDesignType" onchange="updateTypologyOptions()">
+               <option value="window" selected>Window</option>
+               <option value="door">Door</option>
+            </select>
+          </div>
+          <div class="form-group-custom mt-3">
+            <label>Product Code</label>
+            <input type="text" class="form-control-custom" name="code" id="inputWindowCode" placeholder="e.g., WND-2024-001" value="WND-2024-015">
           </div>
           <div class="form-row">
             <div class="form-group-custom">
               <label>Width (mm)</label>
-              <input type="number" class="form-control-custom" id="inputWidth" placeholder="Width" value="1800">
+              <input type="number" step="any" class="form-control-custom" name="width" id="inputWidth" placeholder="Width" value="1800">
             </div>
             <div class="form-group-custom">
               <label>Height (mm)</label>
-              <input type="number" class="form-control-custom" id="inputHeight" placeholder="Height" value="1500">
+              <input type="number" step="any" class="form-control-custom" name="height" id="inputHeight" placeholder="Height" value="1500">
             </div>
           </div>
           <div class="form-group-custom">
             <label>Quantity</label>
-            <input type="number" class="form-control-custom" id="inputQuantity" placeholder="Qty" value="4">
+            <input type="number" class="form-control-custom" name="quantity" id="inputQuantity" placeholder="Qty" value="4">
           </div>
 
           <hr class="form-divider">
 
           <div class="form-group-custom">
             <label>Typology</label>
-            <select class="form-control-custom" id="inputTypology">
-              <option value="sliding" selected>Sliding Window</option>
-              <option value="casement">Casement Window</option>
-              <option value="fixed">Fixed Window</option>
+            <select class="form-control-custom" name="typology" id="inputTypology">
+              <option value="sliding" selected>Sliding</option>
+              <option value="casement">Casement</option>
               <option value="tilt-turn">Tilt & Turn</option>
-              <option value="awning">Awning Window</option>
             </select>
           </div>
           <div class="form-group-custom">
@@ -216,7 +235,7 @@
 
           <div class="form-group-custom">
             <label>Frame Material</label>
-            <select class="form-control-custom" id="inputFrameMaterial">
+            <select class="form-control-custom" name="material" id="inputFrameMaterial">
               <option value="aluminium" selected>Aluminium</option>
               <option value="upvc">uPVC</option>
               <option value="wood">Wood</option>
@@ -233,16 +252,20 @@
               <option value="wood-grain">Wood Grain Finish</option>
             </select>
           </div>
+          </div>
+          <div class="action-bar">
+            <button type="button" class="action-btn primary" id="generate-btn">
+              <i class="bi bi-play-fill"></i> Generate
+            </button>
+            <button type="button" class="action-btn" onclick="resetForm()">
+              <i class="bi bi-arrow-counterclockwise"></i> Reset
+            </button>
+            <button type="submit" class="action-btn" style="background-color: var(--success); color: white;">
+              <i class="bi bi-floppy"></i> Save Design
+            </button>
+          </div>
+          </form>
         </div>
-        <div class="action-bar">
-          <button class="action-btn primary" id="btnGenerate" onclick="updateCADPreview()">
-            <i class="bi bi-play-fill"></i> Generate
-          </button>
-          <button class="action-btn" onclick="resetForm()">
-            <i class="bi bi-arrow-counterclockwise"></i> Reset
-          </button>
-        </div>
-      </div>
 
       <div class="cad-workspace" id="cadWorkspace">
         
@@ -266,8 +289,8 @@
             </div>
           </div>
 
-          <div class="cad-canvas" id="cadCanvas" style="display: flex; align-items: center; justify-content: center; padding: 1rem;">
-            <svg id="windowSVG" preserveAspectRatio="xMidYMid meet" style="width:100%; height:100%; max-height:100%;" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div class="cad-canvas" id="cadCanvas" style="display: flex; align-items: center; justify-content: center; padding: 2rem; position: relative;">
+            <!-- DOM based CAD will be injected here -->
           </div>
 
           <div class="cad-statusbar">

@@ -44,3 +44,54 @@ def logout_view(request):
 @login_required
 def dashboard_view(request):
     return render(request, 'dashboard.html')
+
+@login_required
+def save_design_view(request):
+    if request.method == 'POST':
+        design_type = request.POST.get('type')
+        typology = request.POST.get('typology')
+        width = request.POST.get('width', 0)
+        height = request.POST.get('height', 0)
+        quantity = request.POST.get('quantity', 1)
+        material = request.POST.get('material')
+        
+        try:
+            width = float(width)
+            height = float(height)
+            quantity = int(quantity)
+        except ValueError:
+            width = 0.0
+            height = 0.0
+            quantity = 1
+            
+        area = width * height
+        rates = {
+            'aluminium': 500,
+            'steel': 700,
+            'wood': 600
+        }
+        
+        rate = rates.get(material.lower(), 500)
+        
+        base_cost = area * rate * quantity
+        production_cost = base_cost * 0.10
+        labor_cost = base_cost * 0.10
+        total_cost = base_cost + production_cost + labor_cost
+        
+        from .models import Design
+        Design.objects.create(
+            user=request.user,
+            type=design_type,
+            typology=typology,
+            width=width,
+            height=height,
+            quantity=quantity,
+            material=material,
+            total_cost=total_cost
+        )
+        
+        messages.success(request, 'Design saved successfully.')
+        return redirect('dashboard')
+    
+    return redirect('dashboard')
+
