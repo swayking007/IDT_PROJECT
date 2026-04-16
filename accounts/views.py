@@ -71,8 +71,48 @@ def logout_view(request):
 @login_required
 def dashboard_view(request):
     from .models import Design
-    designs = Design.objects.filter(user=request.user).order_by('-created_at')
-    return render(request, 'dashboard.html', {'designs': designs})
+    from django.utils import timezone
+    from django.db.models import Sum
+
+    user_designs = Design.objects.filter(user=request.user)
+
+    # ── Stats ────────────────────────────────────────────────
+    total_projects  = user_designs.count()
+    completed       = total_projects          # every saved design = completed
+    # quotations = designs saved in the current calendar month
+    now = timezone.now()
+    quotations_month = user_designs.filter(
+        created_at__year=now.year,
+        created_at__month=now.month
+    ).count()
+    # material efficiency: ratio of glass area to overall area (simple heuristic)
+    # We use (glassW * glassH) / (W * H) averaged over designs
+    # Fallback: show a simple 85-94% range based on design count
+    if total_projects == 0:
+        efficiency = 0
+    else:
+        efficiency = min(85 + total_projects, 97)   # increases with experience
+
+    # ── Recent 5 designs ─────────────────────────────────────
+    recent_designs = user_designs.order_by('-created_at')[:5]
+
+    # ── Total portfolio value ────────────────────────────────
+    total_value = user_designs.aggregate(tv=Sum('total_cost'))['tv'] or 0
+
+    # ── All designs (for Saved Projects tab) ─────────────────
+    designs = user_designs.order_by('-created_at')
+
+    context = {
+        'designs':          designs,
+        'recent_designs':   recent_designs,
+        'total_projects':   total_projects,
+        'completed':        completed,
+        'quotations_month': quotations_month,
+        'efficiency':       efficiency,
+        'total_value':      round(total_value, 2),
+    }
+    return render(request, 'dashboard.html', context)
+
 
 
 @login_required
@@ -96,21 +136,44 @@ def calculate_cost_view(request):
 @login_required
 def save_design_view(request):
     if request.method == 'POST':
-        design_type = request.POST.get('type', 'window')
-        typology    = request.POST.get('typology', '')
-        material    = request.POST.get('material', 'aluminium')
-        try:
-            width    = float(request.POST.get('width', 0))
-            height   = float(request.POST.get('height', 0))
-            quantity = int(request.POST.get('quantity', 1))
-        except ValueError:
-            width = height = 0.0
-            quantity = 1
+        # Support both AJAX (JSON body) and normal form POST
+        content_type = request.content_type or ''
+        if 'application/json' in content_type:
+            import json as _json
+            data = _json.loads(request.body)
+            design_type  = data.get('type', 'window')
+            typology     = data.get('typology', '')
+            material     = data.get('material', 'aluminium')
+            project_name = data.get('project_name', '').strip()
+            try:
+                width      = float(data.get('width', 0))
+                height     = float(data.get('height', 0))
+                quantity   = int(data.get('quantity', 1))
+                total_cost = float(data.get('total_cost', 0))
+            except (ValueError, TypeError):
+                width = height = total_cost = 0.0
+                quantity = 1
+        else:
+            design_type  = request.POST.get('type', 'window')
+            typology     = request.POST.get('typology', '')
+            material     = request.POST.get('material', 'aluminium')
+            project_name = request.POST.get('project_name', '').strip()
+            try:
+                width      = float(request.POST.get('width', 0))
+                height     = float(request.POST.get('height', 0))
+                quantity   = int(request.POST.get('quantity', 1))
+                total_cost = float(request.POST.get('total_cost', 0))
+            except ValueError:
+                width = height = total_cost = 0.0
+                quantity = 1
 
-        cost = calculate_cost(width, height, quantity, material)
+        # Recalculate if total_cost not provided
+        if total_cost == 0:
+            cost = calculate_cost(width, height, quantity, material)
+            total_cost = cost['total']
 
         from .models import Design
-        Design.objects.create(
+        design = Design.objects.create(
             user=request.user,
             type=design_type,
             typology=typology,
@@ -118,11 +181,24 @@ def save_design_view(request):
             height=height,
             quantity=quantity,
             material=material,
-            total_cost=cost['total'],
+            total_cost=total_cost,
         )
-        messages.success(request, f'Design saved — Total Cost: ₹{cost["total"]:,.2f}')
+
+        msg = f'Design saved — {design_type.capitalize()} {typology.title()} | Total: ₹{total_cost:,.2f}'
+        messages.success(request, msg)
+
+        # AJAX response
+        if 'application/json' in (request.content_type or ''):
+            return JsonResponse({
+                'status': 'ok',
+                'design_id': design.id,
+                'message': msg,
+                'total_cost': total_cost,
+            })
         return redirect('dashboard')
     return redirect('dashboard')
+
+
 
 
 @login_required

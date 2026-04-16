@@ -886,22 +886,72 @@ window.deleteProject = function(id) {
 };
 
 window.saveProject = function() {
-    const newName  = document.getElementById('saveProjectName').value;
+    const newName  = document.getElementById('saveProjectName').value.trim() || 'Untitled';
     const code     = document.getElementById('inputWindowCode').value;
-    const typeSelect = document.getElementById('inputTypology');
-    const type     = typeSelect.options[typeSelect.selectedIndex].text.split(' ')[0];
-    const width    = document.getElementById('inputWidth').value;
-    const height   = document.getElementById('inputHeight').value;
-    const qty      = document.getElementById('inputQuantity').value;
+    const W        = parseInt(document.getElementById('inputWidth').value)    || 0;
+    const H        = parseInt(document.getElementById('inputHeight').value)   || 0;
+    const qty      = parseInt(document.getElementById('inputQuantity').value) || 1;
+    const material = document.getElementById('inputFrameMaterial').value;
+    const typology = document.getElementById('inputTypology').value;
+    const designType = document.getElementById('inputDesignType').value;
+
+    // Read current cost total from the properties panel (already calculated)
+    const costTotalEl = document.getElementById('costTotal');
+    let totalCost = 0;
+    if (costTotalEl && costTotalEl.innerText && costTotalEl.innerText !== '—') {
+        // Strip '₹' and commas, then parse
+        totalCost = parseFloat(costTotalEl.innerText.replace(/[₹,\s]/g, '')) || 0;
+    }
+    // Fallback: recalculate if cost panel not yet populated
+    if (totalCost === 0 && W > 0 && H > 0) {
+        const RATES = { aluminium: 500, steel: 700, wood: 600, upvc: 400 };
+        const rate   = RATES[material] || 500;
+        const area   = (W / 1000) * (H / 1000);
+        const base   = area * rate * qty;
+        totalCost    = parseFloat((base * 1.20).toFixed(2));   // base + 10% prod + 10% labour
+    }
 
     document.getElementById('currentProjectName').innerText = newName;
 
-    projectsData.unshift({
-        id: Date.now(), name: newName, code, type, width, height, qty,
-        time: 'just now',
-        icon: type.toLowerCase().includes('door') ? 'bi-door-open' : 'bi-window',
-        color: '', bg: ''
+    // ── AJAX POST to Django ───────────────────────────────────
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        // No CSRF token (not logged in?) - show warning
+        alert('Session expired. Please log in again.');
+        return;
+    }
+
+    const payload = {
+        project_name: newName,
+        type:         designType,
+        typology:     typology,
+        width:        W,
+        height:       H,
+        quantity:     qty,
+        material:     material,
+        total_cost:   totalCost,
+    };
+
+    fetch('/save-design/', {
+        method:  'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken':  csrfToken.value,
+        },
+        body: JSON.stringify(payload),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            addNotification(`✅ "${newName}" saved! Cost: ₹${Number(data.total_cost).toLocaleString('en-IN', {minimumFractionDigits:2})}`);
+            // Reload after short delay so Django re-renders fresh stats
+            setTimeout(() => { window.location.reload(); }, 800);
+        } else {
+            addNotification('❌ Save failed: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(err => {
+        console.error('[FabriCAD] Save error:', err);
+        addNotification('❌ Save failed. Please try again.');
     });
-    saveProjectsData(); renderProjects();
-    addNotification(`Project "${newName}" saved successfully!`);
 };

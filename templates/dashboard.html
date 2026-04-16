@@ -133,39 +133,90 @@
       <div class="dashboard-grid" style="margin-bottom:1.5rem;">
         <div class="dash-card">
           <div class="dash-card-icon blue"><i class="bi bi-folder2-open"></i></div>
-          <div class="dash-stat" id="dashStatTotal">0</div>
+          <div class="dash-stat" id="dashStatTotal">{{ total_projects }}</div>
           <h5>Total Projects</h5>
           <p>Active and completed designs</p>
         </div>
         <div class="dash-card">
           <div class="dash-card-icon green"><i class="bi bi-check-circle"></i></div>
-          <div class="dash-stat">8</div>
+          <div class="dash-stat">{{ completed }}</div>
           <h5>Completed</h5>
           <p>Ready for production</p>
         </div>
         <div class="dash-card">
           <div class="dash-card-icon orange"><i class="bi bi-receipt"></i></div>
-          <div class="dash-stat">15</div>
+          <div class="dash-stat">{{ quotations_month }}</div>
           <h5>Quotations</h5>
           <p>Generated this month</p>
         </div>
         <div class="dash-card">
           <div class="dash-card-icon purple"><i class="bi bi-scissors"></i></div>
-          <div class="dash-stat">94%</div>
+          <div class="dash-stat">{{ efficiency }}%</div>
           <h5>Material Efficiency</h5>
           <p>Average optimization rate</p>
         </div>
       </div>
+
+      {% if total_projects > 0 %}
+      <div class="panel" style="margin-bottom:1.25rem;">
+        <div class="panel-header">
+          <h6><i class="bi bi-currency-rupee"></i> Portfolio Value</h6>
+        </div>
+        <div class="panel-body" style="padding:0.75rem 1rem;">
+          <p style="margin:0;font-size:0.9rem;color:var(--text-secondary);">
+            Total estimated value across all your designs:
+            <strong style="color:var(--success);font-size:1.05rem;">
+              ₹{{ total_value|floatformat:2 }}
+            </strong>
+          </p>
+        </div>
+      </div>
+      {% endif %}
 
       <div class="panel">
         <div class="panel-header">
           <h6><i class="bi bi-clock-history"></i> Recent Projects</h6>
           <button class="panel-action-btn" title="View all" onclick="switchView('projects')"><i class="bi bi-arrow-right"></i></button>
         </div>
-        <div class="panel-body" style="padding:0;" id="recentProjectsList">
-          </div>
+        <div class="panel-body" style="padding:0;">
+          {% if recent_designs %}
+            {% for d in recent_designs %}
+            <div class="project-list-item">
+              <div class="project-info" style="flex:1;">
+                <div class="project-thumb" style="background:{% if d.type == 'door' %}rgba(16,185,129,0.12){% else %}rgba(99,102,241,0.12){% endif %};color:{% if d.type == 'door' %}var(--success){% else %}var(--primary){% endif %};">
+                  <i class="bi {% if d.type == 'door' %}bi-door-open{% else %}bi-window{% endif %}"></i>
+                </div>
+                <div>
+                  <div class="project-name">{{ d.type|capfirst }} — {{ d.typology|title }}</div>
+                  <div class="project-meta">
+                    {{ d.width|floatformat:0 }} × {{ d.height|floatformat:0 }} mm &middot;
+                    {{ d.material|capfirst }} &middot;
+                    Qty: {{ d.quantity }} &middot;
+                    <span style="color:var(--success);font-weight:600;">₹{{ d.total_cost|floatformat:0 }}</span>
+                  </div>
+                  <div class="project-meta" style="margin-top:2px;font-size:0.72rem;">
+                    <i class="bi bi-clock" style="font-size:0.65rem;"></i> {{ d.created_at|timesince }} ago
+                  </div>
+                </div>
+              </div>
+              <div class="project-actions">
+                <a href="{% url 'export_pdf' d.id %}" class="project-action-btn" title="Download PDF" style="text-decoration:none;">
+                  <i class="bi bi-file-earmark-pdf" style="color:#ef4444;"></i>
+                </a>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div style="padding:2.5rem;text-align:center;color:var(--text-muted);">
+              <i class="bi bi-inbox" style="font-size:2.5rem;display:block;margin-bottom:0.75rem;opacity:0.35;"></i>
+              <p style="font-size:0.9rem;margin:0;">No projects yet. Go to <strong>Create New Design</strong> to get started!</p>
+            </div>
+          {% endif %}
+        </div>
       </div>
     </div>
+
+
 
     <div class="view-section view-workspace" id="viewWorkspace" style="display:none;">
       <div class="panel" id="inputPanel">
