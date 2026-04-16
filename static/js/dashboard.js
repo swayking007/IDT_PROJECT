@@ -2,8 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Initialize Dynamic Project Arrays (Do not auto-generate CAD yet)
     renderProjects();
     
-    // 2. Initialize Auth, Profile, and Notifications
-    initAuthentication();
+    // 2. Initialize Profile Management and Notifications
     initProfileManagement();
 
     // 3. Sidebar Navigation Logic
@@ -401,49 +400,7 @@ window.exportToPDF = function() {
 // ==========================================
 // AUTHENTICATION & PROFILE LOGIC
 // ==========================================
-function initAuthentication() {
-    const authModalEl = document.getElementById('authModal');
-    const authModal = new bootstrap.Modal(authModalEl); 
 
-    const currentUser = JSON.parse(localStorage.getItem('fabricad_user'));
-    
-    if (!currentUser) {
-        authModal.show(); 
-    } else {
-        updateUIData(currentUser); 
-    }
-
-    document.getElementById('signupForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const name = document.getElementById('signupName').value;
-        const company = document.getElementById('signupCompany').value;
-        const username = document.getElementById('signupUsername').value;
-        const password = document.getElementById('signupPassword').value;
-
-        const user = { name, company, username, password };
-        localStorage.setItem('fabricad_user', JSON.stringify(user));
-        
-        updateUIData(user);
-        authModal.hide();
-        addNotification(`Welcome to FabriCAD, ${name}! Your account was created successfully.`);
-    });
-
-    document.getElementById('loginForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const username = document.getElementById('loginUsername').value;
-        
-        let user = JSON.parse(localStorage.getItem('fabricad_user'));
-        
-        if(!user || user.username !== username) {
-            user = { name: "Demo User", company: "Demo Company", username: username };
-            localStorage.setItem('fabricad_user', JSON.stringify(user));
-        }
-
-        updateUIData(user);
-        authModal.hide();
-        addNotification(`Welcome back, ${user.name}!`);
-    });
-}
 
 function initProfileManagement() {
     const profileModal = new bootstrap.Modal(document.getElementById('profileModal'));
@@ -469,27 +426,9 @@ function initProfileManagement() {
         addNotification('Your profile information has been updated successfully.');
     });
 
-    document.getElementById('btnLogout').addEventListener('click', () => {
-        localStorage.removeItem('fabricad_user');
-        window.location.reload(); 
-    });
 }
 
-function updateUIData(user) {
-    if(!user) return;
-    
-    const initials = user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-    
-    document.getElementById('sidebarUserName').innerText = user.name;
-    document.getElementById('sidebarUserCompany').innerText = user.company;
-    document.getElementById('sidebarUserInitials').innerText = initials;
-    document.getElementById('topbarUserInitials').innerText = initials;
 
-    const welcomeHeader = document.querySelector('#viewDashboard h4');
-    if(welcomeHeader) {
-        welcomeHeader.innerText = `Welcome back, ${user.name.split(' ')[0]} 👋`;
-    }
-}
 
 // ==========================================
 // NOTIFICATION LOGIC
